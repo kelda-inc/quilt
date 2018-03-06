@@ -32,7 +32,7 @@ func TestResolveConenctions(t *testing.T) {
 		MaxPort: 4,
 	}, {
 		From:    []string{"a"},
-		To:      []string{"a", "c"},
+		To:      []string{"a", "c", "public"},
 		MinPort: 5,
 		MaxPort: 6,
 	}, {
@@ -47,6 +47,11 @@ func TestResolveConenctions(t *testing.T) {
 	})
 
 	assert.Equal(t, []connection{{
+		from:    "public",
+		to:      "1.1.1.1",
+		minPort: 0,
+		maxPort: 0,
+	}, {
 		from: "$sha886f76b8da8aa4cb490c3c9e7c8e6" +
 			"df5add0c795ed90b460f0b7765bba4d2bc3",
 		to:      "3.3.3.3",
@@ -63,6 +68,11 @@ func TestResolveConenctions(t *testing.T) {
 		from: "1.1.1.1",
 		to: "$sha7d3647dab65e8fe823c7b3ffdd738" +
 			"59e88450368c683c0cbcdb1c8d7b348a9d9",
+		minPort: 5,
+		maxPort: 6,
+	}, {
+		from:    "1.1.1.1",
+		to:      "public",
 		minPort: 5,
 		maxPort: 6,
 	}, {
@@ -193,6 +203,16 @@ func TestSyncACLs(t *testing.T) {
 		Direction: "to-lport",
 		Match:     "ip",
 		Action:    "drop",
+	}, {
+		Priority:  1,
+		Direction: "from-lport",
+		Action:    "allow",
+		Match:     "ip4.src == 10.0.0.1 || ip4.dst == 10.0.0.1",
+	}, {
+		Priority:  1,
+		Direction: "to-lport",
+		Action:    "allow",
+		Match:     "ip4.src == 10.0.0.1 || ip4.dst == 10.0.0.1",
 	}, {
 		Priority:  1,
 		Direction: "from-lport",

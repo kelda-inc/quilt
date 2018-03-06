@@ -29,8 +29,8 @@ var (
 	// LoadBalancerMac is the MAC address of the load balancer router.
 	LoadBalancerMac = IPToMac(LoadBalancerIP)
 
-	// KeldaBridge is the Open vSwitch bridge controlled by the Kelda minion.
-	KeldaBridge = "kelda-int"
+	// LocalPort is the OVS localport linking OVN to the public internet and minion.
+	LocalPort = "local"
 
 	// OvnBridge is the Open vSwitch bridge controlled by OVN.
 	OvnBridge = "br-int"
@@ -64,10 +64,4 @@ func IFName(name string) string {
 		return name
 	}
 	return name[0:size]
-}
-
-// PatchPorts takes an ID and converts it to two patch port names.  One for the
-// KeldaBridge and one for the OvnBridge.
-func PatchPorts(id string) (br, kelda string) {
-	return IFName("br_" + id), IFName("q_" + id)
 }

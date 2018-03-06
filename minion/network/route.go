@@ -41,8 +41,8 @@ func writeSubnetsOnce(conn db.Conn) error {
 			return fmt.Errorf("get link: %s", err)
 		}
 
-		// Ignore the OVN interface and the default route.
-		if link.Attrs().Name == ipdef.KeldaBridge || r.Dst == nil {
+		// Ignore the localport and the default route.
+		if link.Attrs().Name == ipdef.LocalPort || r.Dst == nil {
 			continue
 		}
 		subnets = append(subnets, r.Dst.String())

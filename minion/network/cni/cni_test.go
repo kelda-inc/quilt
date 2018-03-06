@@ -8,7 +8,6 @@ import (
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/kelda/kelda/minion/ipdef"
-	"github.com/kelda/kelda/minion/network/openflow"
 	"github.com/kelda/kelda/minion/nl"
 	"github.com/kelda/kelda/minion/nl/nlmock"
 
@@ -130,9 +129,6 @@ func TestCmdAddResult(t *testing.T) {
 
 	execRun = func(name string, args ...string) ([]byte, error) {
 		return nil, nil
-	}
-	addFlows = func(containers []openflow.Container) error {
-		return nil
 	}
 	result, err := cmdAddResult(&args)
 	assert.NoError(t, err)
@@ -301,43 +297,15 @@ func TestSetupOVS(t *testing.T) {
 		return nil, nil
 	}
 
-	addFlows = func(containers []openflow.Container) error {
-		return errors.New("addFlows")
-	}
-
-	err = setupOVS("outer", ip, mac, "container-id")
-	assert.EqualError(t, err, "failed to populate OpenFlow tables: addFlows")
-
-	var containers []openflow.Container
-	addFlows = func(ofcs []openflow.Container) error {
-		containers = ofcs
-		return nil
-	}
-
 	err = setupOVS("outer", ip, mac, "container-id")
 	assert.NoError(t, err)
 	assert.Equal(t, []string{
 		"ovs-vsctl",
 
-		"--", "add-port", "kelda-int", "outer",
+		"--", "add-port", "br-int", "outer",
 		"external-ids:cni-container-id=container-id",
 
-		"--", "add-port", "kelda-int", "q_1.2.3.4",
-		"external-ids:cni-container-id=container-id",
-
-		"--", "set", "Interface", "q_1.2.3.4", "type=patch",
-		"options:peer=br_1.2.3.4",
-
-		"--", "add-port", "br-int", "br_1.2.3.4",
-		"external-ids:cni-container-id=container-id",
-
-		"--", "set", "Interface", "br_1.2.3.4", "type=patch",
-		"options:peer=q_1.2.3.4",
+		"--", "set", "Interface", "outer",
 		"external-ids:attached-mac=02:00:01:02:03:04",
 		"external-ids:iface-id=1.2.3.4"}, cmd)
-	assert.Equal(t, []openflow.Container{{
-		Veth:  "outer",
-		Patch: "q_1.2.3.4",
-		Mac:   "02:00:01:02:03:04",
-		IP:    "1.2.3.4"}}, containers)
 }

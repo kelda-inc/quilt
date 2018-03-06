@@ -216,9 +216,12 @@ func TestCfgOVNErrors(t *testing.T) {
 
 func setupArgs() [][]string {
 	vsctl := []string{
-		"ovs-vsctl", "add-br", "kelda-int",
-		"--", "set", "bridge", "kelda-int", "fail_mode=secure",
-		"other_config:hwaddr=\"02:00:0a:00:00:01\"",
+		"ovs-vsctl",
+		"--", "add-br", "br-int",
+		"--", "set", "bridge", "br-int", "fail_mode=secure",
+		"--", "add-port", "br-int", "local",
+		"--", "set", "Interface", "local", "type=internal",
+		"external-ids:iface-id=local", "mac=\"02:00:0a:00:00:01\"",
 	}
 	gateway := []string{"cfgGateway", "10.0.0.1/8"}
 	return [][]string{vsctl, gateway}

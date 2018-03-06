@@ -4,6 +4,8 @@ Kelda Change Log
 Up Next
 -------------
 
+- Replace the custom OpenFlow with stock OVN `localport` configuration.
+
 Release 0.13.0
 -------------
 

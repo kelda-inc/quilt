@@ -9,16 +9,12 @@ import (
 	"github.com/kelda/kelda/blueprint"
 	"github.com/kelda/kelda/db"
 	"github.com/kelda/kelda/join"
+	"github.com/kelda/kelda/minion/ipdef"
 	"github.com/kelda/kelda/minion/ovsdb"
 	"github.com/kelda/kelda/util/str"
 
 	log "github.com/sirupsen/logrus"
 )
-
-type aclKey struct {
-	drop  bool
-	match string
-}
 
 type connection struct {
 	// These contain either address set names, or an individual IP address.
@@ -43,28 +39,46 @@ func resolveConnections(dbConns []db.Connection, hostnameToIP map[string]string)
 	var conns []connection
 	addressSets := map[string][]string{}
 
-	// Given a slice of db.Connection, create a slice of create a slice of connection
+	// Given a slice of db.Connection, create a slice of connection
 	// structs where the from and to are replaced either by individual IP addresses,
 	// or the name of an address set that contains a list of IP addresses.
 	for _, dbConn := range dbConns {
+		fromPub := str.SliceContains(dbConn.From, blueprint.PublicInternetLabel)
 		from := str.SliceFilterOut(dbConn.From, blueprint.PublicInternetLabel)
 		from = uniqueStrings(from)
 		from = resolveHostnames(from, hostnameToIP)
 
+		toPub := str.SliceContains(dbConn.To, blueprint.PublicInternetLabel)
 		to := str.SliceFilterOut(dbConn.To, blueprint.PublicInternetLabel)
 		to = uniqueStrings(to)
 		to = resolveHostnames(to, hostnameToIP)
 
-		if len(from) == 0 || len(to) == 0 {
-			continue // Either from or to contained only `public`.
+		// ACLs to and from the public internet are in a different form from
+		// inter-container ACLs, so they must be separated out.
+		if len(from) > 0 && len(to) > 0 {
+			conns = append(conns, connection{
+				minPort: dbConn.MinPort,
+				maxPort: dbConn.MaxPort,
+				from:    endpointName(from, addressSets),
+				to:      endpointName(to, addressSets),
+			})
 		}
-
-		conns = append(conns, connection{
-			minPort: dbConn.MinPort,
-			maxPort: dbConn.MaxPort,
-			from:    endpointName(from, addressSets),
-			to:      endpointName(to, addressSets),
-		})
+		if fromPub && len(to) > 0 {
+			conns = append(conns, connection{
+				minPort: dbConn.MinPort,
+				maxPort: dbConn.MaxPort,
+				from:    blueprint.PublicInternetLabel,
+				to:      endpointName(to, addressSets),
+			})
+		}
+		if toPub && len(from) > 0 {
+			conns = append(conns, connection{
+				minPort: dbConn.MinPort,
+				maxPort: dbConn.MaxPort,
+				from:    endpointName(from, addressSets),
+				to:      blueprint.PublicInternetLabel,
+			})
+		}
 	}
 
 	var result []ovsdb.AddressSet
@@ -192,6 +206,18 @@ func syncACLs(ovsdbClient ovsdb.Client, connections []connection) {
 		}
 	}
 
+	// All containers must be able to communicate with the gateway.
+	matchStr := fmt.Sprintf("ip4.src == %s || ip4.dst == %s",
+		ipdef.GatewayIP, ipdef.GatewayIP)
+	expACLs = append(expACLs, directedACLs(
+		ovsdb.ACL{
+			Core: ovsdb.ACLCore{
+				Action:   "allow",
+				Match:    matchStr,
+				Priority: 1,
+			},
+		})...)
+
 	ovsdbKey := func(ovsdbIntf interface{}) interface{} {
 		return ovsdbIntf.(ovsdb.ACL).Core
 	}
@@ -239,12 +265,18 @@ func portConstraint(minPort, maxPort int, direction string) string {
 		"%[1]d <= tcp.%[2]s <= %[3]d)", minPort, direction, maxPort)
 }
 
-func from(ip string) string {
-	return fmt.Sprintf("ip4.src == %s", ip)
+func from(src string) string {
+	if src == blueprint.PublicInternetLabel {
+		return fmt.Sprintf("ip4.src != %s", ipdef.KeldaSubnet.String())
+	}
+	return fmt.Sprintf("ip4.src == %s", src)
 }
 
-func to(ip string) string {
-	return fmt.Sprintf("ip4.dst == %s", ip)
+func to(dst string) string {
+	if dst == blueprint.PublicInternetLabel {
+		return fmt.Sprintf("ip4.dst != %s", ipdef.KeldaSubnet.String())
+	}
+	return fmt.Sprintf("ip4.dst == %s", dst)
 }
 
 func or(predicates ...string) string {

@@ -17,7 +17,6 @@ import (
 	"github.com/kelda/kelda/minion/etcd"
 	"github.com/kelda/kelda/minion/kubernetes"
 	"github.com/kelda/kelda/minion/network"
-	"github.com/kelda/kelda/minion/network/openflow"
 	"github.com/kelda/kelda/minion/pprofile"
 	"github.com/kelda/kelda/minion/registry"
 	"github.com/kelda/kelda/minion/supervisor"
@@ -60,9 +59,6 @@ func Run(role db.Role, inboundPubIntf, outboundPubIntf string) {
 	go registry.Run(conn, dk)
 	go etcd.Run(conn)
 	go syncAuthorizedKeys(conn)
-	if role == db.Worker {
-		go openflow.Run(conn)
-	}
 
 	// Block until the credentials are in place on the local filesystem. We
 	// can't simply fail if the first read fails because the daemon might still

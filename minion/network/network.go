@@ -41,8 +41,7 @@ func Run(conn db.Conn, inboundPubIntf, outboundPubIntf string) {
 // The leader of the cluster is responsible for properly configuring OVN northd
 // for container networking and load balancing.  This means creating a logical
 // port for each container, creating ACLs, creating the load balancer router,
-// and creating load balancers.  The specialized OpenFlow rules Kelda requires
-// are managed by the workers individuallly.
+// and creating load balancers.
 func runMaster(conn db.Conn) {
 	c.Inc("Run Master")
 
@@ -108,6 +107,17 @@ func updateLogicalSwitch(ovsdbClient ovsdb.Client, containers []db.Container) {
 				"router-port": loadBalancerRouterPort,
 			},
 			// The addresses field is handled by `updateLoadBalancerARP`.
+		},
+		{
+			Name: ipdef.LocalPort,
+			Type: "localport",
+			// If an OVN switch receives a packet with a destination address
+			// that doesn't belong to any specific switch port, it will
+			// deliver the packet to switch ports with an 'unknown' address.
+			// This allows packets destined for the DNS server and public
+			// internet to be sent to the localport so that can be handled
+			// outside of OVN.
+			Addresses: []string{"unknown"},
 		},
 	}
 	for _, dbc := range containers {

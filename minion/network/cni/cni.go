@@ -9,7 +9,6 @@ import (
 	"runtime"
 
 	"github.com/kelda/kelda/minion/ipdef"
-	"github.com/kelda/kelda/minion/network/openflow"
 	"github.com/kelda/kelda/minion/nl"
 	"github.com/kelda/kelda/minion/ovsdb"
 
@@ -32,8 +31,6 @@ const (
 var execRun = func(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).CombinedOutput()
 }
-
-var addFlows = openflow.AddFlows
 
 var listPortsByTag = func(key, value string) ([]string, error) {
 	client, err := ovsdb.Open()
@@ -276,33 +273,14 @@ func getIPMac(podName string) (net.IPNet, net.HardwareAddr, error) {
 func setupOVS(outerName string, ip net.IP, mac net.HardwareAddr,
 	containerID string) error {
 	portExternalID := fmt.Sprintf("external-ids:%s=%s", containerIDTag, containerID)
-	peerBr, peerKelda := ipdef.PatchPorts(ip.String())
+
 	output, err := execRun("ovs-vsctl",
-		"--", "add-port", ipdef.KeldaBridge, outerName, portExternalID,
-
-		"--", "add-port", ipdef.KeldaBridge, peerKelda, portExternalID,
-
-		"--", "set", "Interface", peerKelda, "type=patch",
-		"options:peer="+peerBr,
-
-		"--", "add-port", ipdef.OvnBridge, peerBr, portExternalID,
-
-		"--", "set", "Interface", peerBr, "type=patch",
-		"options:peer="+peerKelda,
+		"--", "add-port", ipdef.OvnBridge, outerName, portExternalID,
+		"--", "set", "Interface", outerName,
 		"external-ids:attached-mac="+mac.String(),
 		"external-ids:iface-id="+ip.String())
 	if err != nil {
 		return fmt.Errorf("failed to configure OVSDB: %s (%s)", err, output)
-	}
-
-	err = addFlows([]openflow.Container{{
-		Veth:  outerName,
-		Patch: peerKelda,
-		Mac:   mac.String(),
-		IP:    ip.String(),
-	}})
-	if err != nil {
-		return fmt.Errorf("failed to populate OpenFlow tables: %s", err)
 	}
 
 	return nil

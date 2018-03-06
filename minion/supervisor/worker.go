@@ -40,11 +40,11 @@ func setupWorker() {
 
 	ip := net.IPNet{IP: ipdef.GatewayIP, Mask: ipdef.KeldaSubnet.Mask}
 	for {
-		err := cfgGateway(ipdef.KeldaBridge, ip)
+		err := cfgGateway(ipdef.LocalPort, ip)
 		if err == nil {
 			break
 		}
-		log.WithError(err).Errorf("Failed to configure %s.", ipdef.KeldaBridge)
+		log.WithError(err).Errorf("Failed to configure %s.", ipdef.LocalPort)
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -217,10 +217,15 @@ func cfgOVNImpl(myIP, leaderIP string) error {
 }
 
 func setupBridge() error {
-	gwMac := ipdef.IPToMac(ipdef.GatewayIP)
-	_, err := execRun("ovs-vsctl", "add-br", ipdef.KeldaBridge,
-		"--", "set", "bridge", ipdef.KeldaBridge, "fail_mode=secure",
-		fmt.Sprintf("other_config:hwaddr=\"%s\"", gwMac))
+	_, err := execRun("ovs-vsctl",
+		"--", "add-br", ipdef.OvnBridge,
+		"--", "set", "bridge", ipdef.OvnBridge, "fail_mode=secure",
+		"--", "add-port", ipdef.OvnBridge, ipdef.LocalPort,
+		"--", "set", "Interface", ipdef.LocalPort,
+		"type=internal",
+		"external-ids:iface-id="+ipdef.LocalPort,
+		fmt.Sprintf("mac=\"%s\"", ipdef.GatewayMac),
+	)
 	return err
 }
 

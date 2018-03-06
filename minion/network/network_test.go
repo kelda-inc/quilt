@@ -33,6 +33,11 @@ func TestUpdateLogicalSwitch(t *testing.T) {
 			"router-port": loadBalancerRouterPort,
 		},
 	}).Return(nil)
+	client.On("CreateSwitchPort", lSwitch, ovsdb.SwitchPort{
+		Name:      ipdef.LocalPort,
+		Type:      "localport",
+		Addresses: []string{"unknown"},
+	}).Return(nil)
 
 	client.On("ListSwitchPorts").Return([]ovsdb.SwitchPort{{Name: "1.2.3.5"}}, nil)
 	client.On("DeleteSwitchPort", lSwitch, ovsdb.SwitchPort{

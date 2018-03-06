@@ -35,7 +35,7 @@ func TestWriteSubnets(t *testing.T) {
 		[]nl.Route{{LinkIndex: 3}}, nil)
 	mockNetlink.On("LinkByIndex", 1).Return(&netlink.GenericLink{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: "kelda-int",
+			Name: "local",
 		},
 	}, nil)
 	mockNetlink.On("LinkByIndex", 2).Return(&netlink.GenericLink{
